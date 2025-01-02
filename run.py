@@ -35,6 +35,7 @@ def build_dataset_from_config(cfg, dataset_name):
         return supported_video_datasets[dataset_name]()
     assert 'class' in config
     cls_name = config.pop('class')
+    # print(f"*********************{cls_name}**************************")
     if hasattr(vlmeval.dataset, cls_name):
         cls = getattr(vlmeval.dataset, cls_name)
         sig = inspect.signature(cls.__init__)
@@ -142,6 +143,9 @@ You can launch the evaluation by setting either --data and --model or --config.
     parser.add_argument('--ignore', action='store_true', help='Ignore failed indices. ')
     # Reuse: will reuse the existing prediction files
     parser.add_argument('--reuse', action='store_true')
+    # few-shot number
+    # TODO:实例化数据集时 应当提供该参数 image_base的__init__()已增加few-shot参数
+    parser.add_argument('--few-shot', type=int, default=0)
 
     args = parser.parse_args()
     return args
@@ -181,10 +185,7 @@ def main():
     if world_size > 1:
         local_rank = os.environ.get('LOCAL_RANK', 0)
         torch.cuda.set_device(int(local_rank))
-        dist.init_process_group(
-            backend='nccl',
-            timeout=datetime.timedelta(seconds=int(os.environ.get('DIST_TIMEOUT', 3600)))
-        )
+        dist.init_process_group(backend='nccl', timeout=datetime.timedelta(seconds=3600))
 
     for _, model_name in enumerate(args.model):
         model = None
@@ -303,7 +304,8 @@ def main():
                         dataset=dataset,
                         verbose=args.verbose,
                         api_nproc=args.nproc,
-                        ignore_failed=args.ignore)
+                        ignore_failed=args.ignore,
+                        few_shot = args.few_shot)
 
                 # Set the judge kwargs first before evaluation or dumping
 
@@ -322,7 +324,7 @@ def main():
                         judge_kwargs['model'] = 'chatgpt-0125'
                     elif listinstr(['MMVet', 'LLaVABench', 'MMBench-Video'], dataset_name):
                         judge_kwargs['model'] = 'gpt-4-turbo'
-                    elif listinstr(['MathVista', 'MathVerse', 'MathVision', 'DynaMath', 'VL-RewardBench'], dataset_name):  # noqa: E501
+                    elif listinstr(['MathVista', 'MathVerse', 'MathVision', 'DynaMath'], dataset_name):
                         judge_kwargs['model'] = 'gpt-4o-mini'
                     elif listinstr(['MMLongBench', 'MMDU', 'DUDE', 'SLIDEVQA', 'MIA-Bench', 'WildVision'], dataset_name):  # noqa: E501
                         judge_kwargs['model'] = 'gpt-4o'
@@ -380,6 +382,8 @@ def main():
 
                     # Perform the Evaluation
                     eval_results = dataset.evaluate(result_file, **judge_kwargs)
+                    # import pdb 
+                    # pdb.set_trace()
                     # Display Evaluation Results in Terminal
                     if eval_results is not None:
                         assert isinstance(eval_results, dict) or isinstance(eval_results, pd.DataFrame)
@@ -398,7 +402,7 @@ def main():
 
                     # Create the symbolic links for the prediction files
                     files = os.listdir(pred_root)
-                    files = [x for x in files if (f'{model_name}_{dataset_name}' in x or "status.json" in x)]
+                    files = [x for x in files if f'{model_name}_{dataset_name}' in x]
                     for f in files:
                         cwd = os.getcwd()
                         file_addr = osp.join(cwd, pred_root, f)

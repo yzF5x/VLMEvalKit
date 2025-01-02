@@ -139,6 +139,29 @@ def Hallusion_rating(data_file):
     ret = pd.DataFrame(res)
     return ret
 
+def Anomaly_classification_rating(data_file):
+    def cal_f1_score(y_true, y_pred):
+        tp = sum((y_true == 1) & (y_pred == 1))
+        fp = sum((y_true == 0) & (y_pred == 1))
+        fn = sum((y_true == 1) & (y_pred == 0))
+
+        precision = tp / (tp + fp) if (tp + fp) != 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) != 0 else 0
+        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) != 0 else 0
+        return f1_score, precision, recall
+    data = load(data_file)
+    data['index'] = range(len(data))
+    res = dict(split=[], Overall=[], acc=[], precision=[], recall=[])
+    y_true = np.array([1 if i.lower() == 'yes' else 0 for i in data['answer']])
+    y_pred = np.array([1 if i.lower() == 'yes' else 0 for i in data['extracted']])
+    f1_score, precision, recall = cal_f1_score(y_true, y_pred)
+    res['Overall'].append(f1_score * 100)
+    res['acc'].append(np.mean(data['score']) * 100)
+    res['precision'].append(precision * 100)
+    res['recall'].append(recall * 100)
+    
+    ret = pd.DataFrame(res)
+    return ret
 
 def POPE_rating(data_file):
     def cal_f1_score(y_true, y_pred):
@@ -222,6 +245,19 @@ def YOrN_match_prompt(line):
     )
     return tmpl.format(line['question'], line['prediction'])
 
+def YOrN_Extraction_From_Json(output):
+    answer = json.loads(output)
+    vlm_answer = answer.get('vlm_answer').lower()
+    vlm_answer = process_punctuation(vlm_answer).split()
+    if 'yes' in vlm_answer and 'no' not in vlm_answer:
+        answer['vlm_answer'] = 'Yes'
+    elif 'yes' not in vlm_answer and 'no' in vlm_answer:
+        answer['vlm_answer'] = 'No'
+    else :
+        answer['vlm_answer'] = 'Unknown'
+    return answer
+    
+    
 
 def YOrN_Extraction(output):
     s = output.lower()

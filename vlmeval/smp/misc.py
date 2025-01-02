@@ -277,15 +277,4 @@ def get_gpu_memory():
 
 def auto_split_flag():
     flag = os.environ.get('AUTO_SPLIT', '0')
-    if flag == '1':
-        return True
-    _, world_size = get_rank_and_world_size()
-    try:
-        import torch
-        device_count = torch.cuda.device_count()
-        if device_count > world_size and device_count % world_size == 0:
-            return True
-        else:
-            return False
-    except:
-        return False
+    return flag == '1'

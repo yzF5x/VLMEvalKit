@@ -35,7 +35,7 @@ class ImageVQADataset(ImageBaseDataset):
         'InfoVQA_VAL': '2342e9c225222f0ef4dec545ebb126fe',
         'InfoVQA_TEST': 'df535bf51b88dc9718252c34131a6227',
         'ChartQA_TEST': 'c902e0aa9be5582a7aad6dcf52734b42',
-        'GQA_TestDev_Balanced': '99b62f22e224d9b2f32dcbe41359d1c9',
+        'GQA_TestDev_Balanced': 'fead7df22befc1ed3ca2b62ea26fa17b',
     }
 
     def build_prompt(self, line):
@@ -95,6 +95,7 @@ class ImageVQADataset(ImageBaseDataset):
         result_file = eval_file.replace(f'.{suffix}', '_acc.csv')
         dump(ret, result_file)
         return ret
+
 
 
 class VizWiz(ImageBaseDataset):

@@ -41,8 +41,6 @@ class InternVLChat(BaseModel):
         assert version_cmp(transformers.__version__, '4.37.2', 'ge')
 
         self.use_mpo_prompt = use_mpo_prompt
-        self.use_cot = (os.getenv('USE_COT') == '1')
-
         self.model_path = model_path
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=False)
 
@@ -98,8 +96,6 @@ class InternVLChat(BaseModel):
             return True
 
     def build_prompt(self, line, dataset=None):
-        use_mpo_prompt = self.use_mpo_prompt and (self.use_cot or dataset in ['MMStar', 'HallusionBench', 'OCRBench'])
-
         assert self.use_custom_prompt(dataset)
         assert dataset is None or isinstance(dataset, str)
         tgt_path = self.dump_image(line, dataset)
@@ -139,7 +135,7 @@ class InternVLChat(BaseModel):
         message = [dict(type='text', value=prompt)]
         message.extend([dict(type='image', value=s) for s in tgt_path])
 
-        if use_mpo_prompt:
+        if self.use_mpo_prompt:
             message = build_mpo_prompt(message, line, dataset)
         return message
 
@@ -206,8 +202,6 @@ class InternVLChat(BaseModel):
         return response
 
     def generate_v2(self, message, dataset=None):
-        use_mpo_prompt = self.use_mpo_prompt and (self.use_cot or dataset in ['MMStar', 'HallusionBench', 'OCRBench'])
-
         image_num = len([x for x in message if x['type'] == 'image'])
         max_num = max(1, min(self.max_num, self.total_max_num // image_num))
         prompt = reorganize_prompt(message, image_num, dataset=dataset)
@@ -245,7 +239,7 @@ class InternVLChat(BaseModel):
                 verbose=True
             )
 
-        if use_mpo_prompt:
+        if self.use_mpo_prompt:
             response = mpo_post_processing(response, dataset)
         return response
 

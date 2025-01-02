@@ -36,10 +36,11 @@ class ImageBaseDataset:
     DATASET_URL = {}
     DATASET_MD5 = {}
 
-    def __init__(self, dataset='MMBench', skip_noimg=True):
+    def __init__(self, dataset='MMBench', skip_noimg=True , few_shot = 0):
         ROOT = LMUDataRoot()
         # You can override this variable to save image files to a different directory
         self.dataset_name = dataset
+        self.few_shot = few_shot
         self.img_root = osp.join(ROOT, 'images', img_root_map(dataset))
 
         data = self.load_data(dataset)
@@ -87,13 +88,14 @@ class ImageBaseDataset:
         update_flag = False
         file_name = url.split('/')[-1]
         data_path = osp.join(data_root, file_name)
+        # 检查是否存在文件，不存在才会触发下载
         if osp.exists(data_path) and (file_md5 is None or md5(data_path) == file_md5):
             pass
         else:
             warnings.warn('The dataset tsv is not downloaded')
             download_file(url, data_path)
             update_flag = True
-
+        # 如果文件大小超过1GB，则构建一个新的文件路径 local_path，执行本地化
         if file_size(data_path, 'GB') > 1:
             local_path = data_path.replace('.tsv', '_local.tsv')
             if not osp.exists(local_path) or os.environ.get('FORCE_LOCAL', None) or update_flag:
@@ -104,7 +106,7 @@ class ImageBaseDataset:
 
     def dump_image(self, line):
         os.makedirs(self.img_root, exist_ok=True)
-
+        # 不一定非要有base64编码的image列
         if 'image' in line:
             if isinstance(line['image'], list):
                 tgt_path = []

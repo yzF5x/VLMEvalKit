@@ -87,9 +87,14 @@ class ImageYORNDataset(ImageBaseDataset):
             score = POPE_rating(storage)
         elif dataset is not None and listinstr(['AMBER'], dataset):
             score = AMBER_rating(storage)
+        # elif dataset is not None and listinstr(['Anomaly'], dataset):
+        #     score = Anomaly_classification_rating(storage)
         else:
             score = default_rating(storage)
 
         score_tgt = eval_file.replace('.xlsx', '_score.csv')
         dump(score, score_tgt)
         return score
+
+
+        
