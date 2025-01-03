@@ -151,7 +151,7 @@ def Anomaly_classification_rating(data_file):
         return f1_score, precision, recall
     data = load(data_file)
     data['index'] = range(len(data))
-    res = dict(split=[], Overall=[], acc=[], precision=[], recall=[])
+    res = dict(Overall=[], acc=[], precision=[], recall=[])
     y_true = np.array([1 if i.lower() == 'yes' else 0 for i in data['answer']])
     y_pred = np.array([1 if i.lower() == 'yes' else 0 for i in data['extracted']])
     f1_score, precision, recall = cal_f1_score(y_true, y_pred)
@@ -246,7 +246,23 @@ def YOrN_match_prompt(line):
     return tmpl.format(line['question'], line['prediction'])
 
 def YOrN_Extraction_From_Json(output):
-    answer = json.loads(output)
+    def parse_json(output):
+        lines = [line.strip() for line in output.split('\n') if line.strip()]
+        i = 0
+        j = len(lines) - 1
+        while i < len(lines):
+            if '{' in lines[i]:
+                break
+            i += 1
+        while j >= 0:
+            if '}' in lines[j]:
+                break
+            j -= 1
+        answer_str = '\n'.join(lines[i:j+1])
+        json_str = json.loads(answer_str)
+        return json_str 
+      
+    answer = parse_json(output)
     vlm_answer = answer.get('vlm_answer').lower()
     vlm_answer = process_punctuation(vlm_answer).split()
     if 'yes' in vlm_answer and 'no' not in vlm_answer:

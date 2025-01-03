@@ -4,7 +4,8 @@ from .image_base import ImageBaseDataset
 
 class AnomalyVQA(ImageBaseDataset):
     TYPE = "VQA"
-    DATASET_URL = {"AnomalyVQA":"/home/bhu/LMUData/AnomalyVQA.tsv"}
+    DATASET_URL = {"AnomalyVQA":"/home/bhu/LMUData/AnomalyVQA.tsv",
+                   "AnomalyVQA5":"/home/bhu/LMUData/AnomalyVQA5.tsv"}
     DATASET_MD5 = {}
     
 
@@ -13,7 +14,7 @@ class AnomalyVQA(ImageBaseDataset):
         if isinstance(line, int):
             line = self.data.iloc[line]
         # extensions_list = ['png','jpg','jpeg']
-        # msgs = []
+        msgs = []
         # if not self.few_shot:
         #     few_shot_path = line['few_shot_path']
         #     normal_imgs = [os.path.join(few_shot_path,img) for img in os.listdir(few_shot_path) if img.split('.')[-1] in extensions_list] 

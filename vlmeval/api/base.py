@@ -186,7 +186,7 @@ class BaseAPI:
                     self.logger.info(f'RetCode: {ret_code}\nAnswer: {answer}\nLog: {log}')
             except Exception as err:
                 if self.verbose:
-                    self.logger.error(f'An error occured during try {i}: ')
+                    self.logger.error(f'CHAT : An error occured during try {i}: ')
                     self.logger.error(f'{type(err)}: {err}')
             # delay before each retry
             T = rd.random() * self.wait * 2
@@ -256,7 +256,7 @@ class BaseAPI:
                     self.logger.info(f'RetCode: {ret_code}\nAnswer: {answer}\nLog: {log}')
             except Exception as err:
                 if self.verbose:
-                    self.logger.error(f'An error occured during try {i}: ')
+                    self.logger.error(f'GENERATE : An error occured during try {i}: ')
                     self.logger.error(f'{type(err)}: {err}')
             # delay before each retry
             T = rd.random() * self.wait * 2

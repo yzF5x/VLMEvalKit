@@ -49,7 +49,18 @@ ungrouped = {
     'Pixtral-12B': partial(Pixtral, model_path='mistralai/Pixtral-12B-2409'),
     'Falcon2-VLM-11B': partial(Falcon2VLM, model_path='tiiuae/falcon-11B-vlm')
 }
-
+openrouter_api_models = {
+    # 这个最便宜
+    'gemini-flash-1.5-8b':partial(OpenrouterAPI , model = 'google/gemini-flash-1.5-8b',api_base
+                                  ='https://openrouter.ai/api/v1/chat/completions',
+                                  temperature = 0 , retry = 3 , img_size = 512 , img_detail = 'low'),
+    'gemini-pro-vision':partial(OpenrouterAPI , model='google/gemini-pro-vision',api_base 
+                                       ='https://openrouter.ai/api/v1/chat/completions',
+                                       temperature=0, retry=3 , img_size=512, img_detail='low'),
+    'gemini-pro-1.5':partial(OpenrouterAPI , model = 'google/gemini-pro-1.5',api_base
+                                    ='https://openrouter.ai/api/v1/chat/completions',
+                                    temperature=0, retry=3 , img_size=512, img_detail='low')
+}
 api_models = {
     # GPT
     'GPT4V': partial(GPT4V, model='gpt-4-1106-vision-preview', temperature=0, img_size=512, img_detail='low', retry=10, verbose=False),
@@ -399,7 +410,7 @@ model_groups = [
     mantis_series, mmalaya_series, phi3_series, xgen_mm_series, qwen2vl_series,
     slime_series, eagle_series, moondream_series, llama_series, molmo_series,
     kosmos_series, points_series, nvlm_series, vintern_series, h2ovl_series, aria_series,
-    smolvlm_series, sail_series
+    smolvlm_series, sail_series,openrouter_api_models
 ]
 
 for grp in model_groups:
