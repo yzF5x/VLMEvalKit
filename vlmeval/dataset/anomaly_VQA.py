@@ -5,7 +5,9 @@ from .image_base import ImageBaseDataset
 class AnomalyVQA(ImageBaseDataset):
     TYPE = "VQA"
     DATASET_URL = {"AnomalyVQA":"/home/bhu/LMUData/AnomalyVQA.tsv",
-                   "AnomalyVQA5":"/home/bhu/LMUData/AnomalyVQA5.tsv"}
+                   "AnomalyVQA4types":"/home/bhu/LMUData/AnomalyVQA4types.tsv",
+                   "AnomalyVQA1type":"/home/bhu/LMUData/AnomalyVQA1type.tsv"
+                   }
     DATASET_MD5 = {}
     
 
@@ -13,13 +15,7 @@ class AnomalyVQA(ImageBaseDataset):
     # tsv应当保存一个few-shot的路径 可以由这个路径随机抽取normal的图像
         if isinstance(line, int):
             line = self.data.iloc[line]
-        # extensions_list = ['png','jpg','jpeg']
         msgs = []
-        # if not self.few_shot:
-        #     few_shot_path = line['few_shot_path']
-        #     normal_imgs = [os.path.join(few_shot_path,img) for img in os.listdir(few_shot_path) if img.split('.')[-1] in extensions_list] 
-        #     normal_imgs = random.sample(normal_imgs,k=min(self.few_shot,len(normal_imgs))) 
-        #     msgs.extend([dict(type = "image" , value = img) for img in normal_imgs])
         if self.meta_only:
             tgt_path = toliststr(line['image_path'])
         else:
@@ -51,15 +47,14 @@ class AnomalyVQA(ImageBaseDataset):
         
         if not osp.exists(storage):
             ans_map = {k: YOrN_Extraction_From_Json(v) for k, v in zip(data['index'], data['prediction'])}
-            if osp.exists(tmp_file):
-                tmp = load(tmp_file)
-                for k in tmp:
-                    if ans_map[k].get('vlm_answer') == 'Unknown' and tmp[k].get('vlm_answer') != 'Unknown':
-                        ans_map[k]['vlm_answer'] = tmp[k].get('vlm_answer')
+            # if osp.exists(tmp_file):
+            #     tmp = load(tmp_file)
+            #     for k in tmp:
+            #         if ans_map[k].get('vlm_answer') == 'Unknown' and tmp[k].get('vlm_answer') != 'Unknown':
+            #             ans_map[k]['vlm_answer'] = tmp[k].get('vlm_answer')
 
-            data['extracted'] = [ans_map[x].get('vlm_answer') for x in data['index']]
-            data['reason'] = [ans_map[x].get('reason') for x in data['index']]
-            unknown = data[data['extracted'] == 'Unknown']
+            data['extracted'] = [ans_map[x] for x in data['index']]
+            # unknown = data[data['extracted'] == 'Unknown']
             # 没能提供判断答案所需的api 就是精确判断模式
             model = judge_kwargs.get('model', 'exact_matching')
             if model == 'exact_matching':
@@ -84,15 +79,16 @@ class AnomalyVQA(ImageBaseDataset):
                         YOrN_auxeval, tups, nproc=nproc, chunksize=nproc, keys=indices, save=tmp_file)
                     for k, v in zip(indices, res):
                         ans_map[k] = v
-
-            data['extracted'] = [ans_map[x].get('vlm_answer') for x in data['index']]
-            data['reason'] = [ans_map[x].get('reason') for x in data['index']]
+            # 测评时处理结果文件要改一下 主要是格式
+            # data['extracted'] = [ans_map[x].get('vlm_answer') for x in data['index']]
+            # data['reason'] = [ans_map[x].get('reason') for x in data['index']]
             dump(data, storage)
 
         data = load(storage)
-        data['score'] = (data['answer'].str.lower() == data['extracted'].str.lower())
+        # 在这里对比正确率
+        # data['score'] = (data['answer'].str.lower() == data['extracted'].str.lower())
         dump(data, storage)
-        data.to_csv("./outputs/res.xlsx", sep="\t",index = False)
+        data.to_csv("./outputs/res.tsv", sep="\t",index = False)
         score = Anomaly_classification_rating(storage)
         score_tgt = eval_file.replace('.xlsx', '_score.csv')
         dump(score, score_tgt)

@@ -5,7 +5,8 @@ from .image_base import ImageBaseDataset
         
 class AnomalyYorn(ImageBaseDataset):
     TYPE = "Y/N"
-    DATASET_URL = {"AnomalyYorn":"/home/bhu/LMUData/AnomalyYorn.tsv"}
+    DATASET_URL = {"AnomalyYorn":"/home/bhu/LMUData/AnomalyYorn.tsv",
+                  "AnomalyYorn5":"/home/bhu/LMUData/AnomalyYorn5.tsv" }
     DATASET_MD5 = {}
     def build_prompt(self,line):
     # tsv应当保存一个few-shot的路径 可以由这个路径随机抽取normal的图像

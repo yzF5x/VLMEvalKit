@@ -150,16 +150,104 @@ def Anomaly_classification_rating(data_file):
         f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) != 0 else 0
         return f1_score, precision, recall
     data = load(data_file)
+    data = data.assign(category=data['category'].str.split(',')).explode('category')
     data['index'] = range(len(data))
-    res = dict(Overall=[], acc=[], precision=[], recall=[])
-    y_true = np.array([1 if i.lower() == 'yes' else 0 for i in data['answer']])
-    y_pred = np.array([1 if i.lower() == 'yes' else 0 for i in data['extracted']])
+    res = dict(split=[], Overall=[], acc=[], precision=[], recall=[],anomalyAcc = [])
+    y_true , y_pred = [], []
+    anomaly_true ,anomaly_pred = [] , []
+    for i in data['answer']:
+        i = i.strip().replace("'",'"')
+        i = json.loads(i)
+        print("answer i :" ,i)
+        anomaly_true.append(i.get('Anomaly'))
+        i = i['standards']
+        for key , answer in i.items():
+            if answer.lower() == 'yes':
+                y_true.append(1)
+            else:
+                y_true.append(0)
+    for i in data['extracted']:
+        print("extracted i :" ,i)
+        i = i.strip().replace("'",'"')
+        i = json.loads(i)
+        # print("extracted i :" ,i)
+        anomaly_pred.append(i.get('anomaly') if not i.get('anomaly') else 'W')
+        i = i['standards']
+        for key , pred in i.items():
+            if pred.get('answer') =='Yes':
+                y_pred.append(1)
+            else:
+                y_pred.append(0)
+    correct_count = sum([1 if y_pred[i] == y_true[i] else 0 for i in range(len(y_pred))])
+    total_count = len(y_pred)
+    res['acc'].append(correct_count/total_count * 100)
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
     f1_score, precision, recall = cal_f1_score(y_true, y_pred)
+    res['split'].append('Overall')
     res['Overall'].append(f1_score * 100)
-    res['acc'].append(np.mean(data['score']) * 100)
     res['precision'].append(precision * 100)
     res['recall'].append(recall * 100)
     
+    if len(anomaly_pred) == len(anomaly_true) and len(anomaly_pred):
+        correct = [1 if anomaly_pred[i] == anomaly_true[i] else 0 for i in range(len(anomaly_pred))]
+        correct_count = sum(correct)
+        total_count = len(anomaly_true)
+        res['anomalyAcc'].append(correct_count/total_count * 100)
+    else:
+        print("true: ",anomaly_true ,"pred: ", anomaly_pred)
+        res['anomalyAcc'].append(-1)
+    print('Overall:' , res)
+    
+    if 'category' in data:
+        cates = list(set(data['category']))
+        cates = [c for c in cates if not pd.isna(c)]
+        for c in cates:
+            sub = data[data['category'] == c]
+            y_true , y_pred = [], []
+            anomaly_true ,anomaly_pred = [] , []
+            for i in sub['answer']:
+                i = i.strip().replace("'",'"')
+                i = json.loads(i)
+                print("answer i :" ,i)
+                anomaly_true.append(i.get('Anomaly'))
+                i = i['standards']
+                for key , answer in i.items():
+                    if answer.lower() == 'yes':
+                        y_true.append(1)
+                    else:
+                        y_true.append(0)
+            for i in sub['extracted']:
+                print("extracted i :" ,i)
+                i = i.strip().replace("'",'"')
+                i = json.loads(i)
+                # print("extracted i :" ,i)
+                anomaly_pred.append(i.get('anomaly') if not i.get('anomaly') else 'W')
+                i = i['standards']
+                for key , pred in i.items():
+                    if pred.get('answer') =='Yes':
+                        y_pred.append(1)
+                    else:
+                        y_pred.append(0)
+            correct_count = sum([1 if y_pred[i] == y_true[i] else 0 for i in range(len(y_pred))])
+            total_count = len(y_pred)
+            res['acc'].append(correct_count/total_count * 100)
+            y_true = np.array(y_true)
+            y_pred = np.array(y_pred)
+            f1_score, precision, recall = cal_f1_score(y_true, y_pred)
+            res['split'].append(c)
+            res['Overall'].append(f1_score * 100)
+            res['precision'].append(precision * 100)
+            res['recall'].append(recall * 100)
+            if len(anomaly_pred) == len(anomaly_true) and len(anomaly_pred):
+                correct = [1 if anomaly_pred[i] == anomaly_true[i] else 0 for i in range(len(anomaly_pred))]
+                correct_count = sum(correct)
+                total_count = len(anomaly_true)
+                res['anomalyAcc'].append(correct_count/total_count * 100)
+            else:
+                print("true: ",anomaly_true ,"pred: ", anomaly_pred)
+                res['anomalyAcc'].append(-1)
+
     ret = pd.DataFrame(res)
     return ret
 
@@ -247,6 +335,7 @@ def YOrN_match_prompt(line):
 
 def YOrN_Extraction_From_Json(output):
     def parse_json(output):
+        output = output.replace("'",'"')
         lines = [line.strip() for line in output.split('\n') if line.strip()]
         i = 0
         j = len(lines) - 1
@@ -258,19 +347,43 @@ def YOrN_Extraction_From_Json(output):
             if '}' in lines[j]:
                 break
             j -= 1
-        answer_str = '\n'.join(lines[i:j+1])
-        json_str = json.loads(answer_str)
-        return json_str 
+        # 没有按照指定的json格式回答
+        if j==-1 and i==len(lines):
+            answer_dict = {}
+            standards = {}
+            for line in lines:
+                if 'anomaly' in line or 'Anomaly' in line:
+                    answer_dict['anomaly'] = line.split(':',1)[1]
+                else:
+                    answer_dict['anomaly'] = 'Unknown'
+                if "reason" in line and ':' in line:  #回答了reason
+                    part , reason = line.split('reason',1)
+                    key , vlm_answer = part.split(':',1)
+                    standards[key.strip()]={"answer": vlm_answer.strip(),"reason": reason.strip()}
+                elif ':' in line:  #只回答了yes no
+                    key, value = line.split(':', 1)  
+                    standards[key.strip()] = {"answer": vlm_answer.strip()}
+            answer_dict['standards'] = standards
+            return json.dumps(answer_dict,indent = 4)
+        else :
+            answer_str = '\n'.join(lines[i:j+1])
+            json_str = json.loads(answer_str)
+            return json_str 
       
     answer = parse_json(output)
-    vlm_answer = answer.get('vlm_answer').lower()
-    vlm_answer = process_punctuation(vlm_answer).split()
-    if 'yes' in vlm_answer and 'no' not in vlm_answer:
-        answer['vlm_answer'] = 'Yes'
-    elif 'yes' not in vlm_answer and 'no' in vlm_answer:
-        answer['vlm_answer'] = 'No'
-    else :
-        answer['vlm_answer'] = 'Unknown'
+    if isinstance(answer, dict):
+        standards = answer.get('standards')
+        for key , value in standards.items():
+            vlm_answer = value.get('answer').lower()
+            vlm_answer = process_punctuation(vlm_answer).split()
+            if 'yes' in vlm_answer and 'no' not in vlm_answer:
+                standards[key]['answer'] = 'Yes'
+            elif 'yes' not in vlm_answer and 'no' in vlm_answer:
+                standards[key]['answer'] = 'No'
+            else :
+                standards[key]['answer'] = 'Unknown'
+        answer['standards'] = standards
+    print(f"YOrN_Extraction_From_Json(output) result: {answer} \n")
     return answer
     
     

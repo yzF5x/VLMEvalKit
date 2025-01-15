@@ -9,6 +9,13 @@ from ...dataset import DATASET_TYPE, DATASET_MODALITY
 import copy
 import requests
 
+# from visual_utils import (
+#     load_image, 
+#     aggregate_llm_attention, aggregate_vit_attention,
+#     heterogenous_stack,
+#     show_mask_on_image
+# )
+
 
 class LLaVA(BaseModel):
 
@@ -72,6 +79,8 @@ class LLaVA(BaseModel):
             top_p=None,
             num_beams=1,
             use_cache=True,
+            # return_dict_in_generate=True
+            output_attentions=True
         )  # noqa E501
         kwargs_default.update(kwargs)
         self.kwargs = kwargs_default
@@ -175,9 +184,7 @@ class LLaVA(BaseModel):
                 stopping_criteria=[stopping_criteria],
                 **self.kwargs,
             )
-        output = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[
-            0
-        ].strip()
+        output = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
         return output
 
     def generate_inner(self, message, dataset=None):
@@ -221,10 +228,91 @@ class LLaVA(BaseModel):
                 stopping_criteria=[stopping_criteria],
                 **self.kwargs,
             )
-
+        # from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image
+        # from pytorch_grad_cam import GradCAM
+        # # input_tensor应该用grad_cam自带的processor还是自定义的？
+        # target_layers = self.model.model.layers[39].self_attn
+        # with GradCAM(model=self.model,
+        #             target_layers=target_layers) as cam:
+        #     cam_output = cam(input_tensor=input_tensor)[0, :]
+        # cam_image = show_cam_on_image(image_float, cam_output, use_rgb=True)
+        # cam_image = cv2.cvtColor(cam_image, cv2.COLOR_RGB2BGR)
+        # cv2.imwrite("../../cam_image.jpg", cam_image)
         output = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[
             0
         ].strip()
+        # print("1111111111111111111" , output_ids,"\n")
+        # print("22222222222222222222222",output,"\n")
+        # # 可视化
+        # # constructing the llm attention matrix
+        # aggregated_prompt_attention = []
+        # for i, layer in enumerate(output_ids["attentions"][0]):
+        #     layer_attns = layer.squeeze(0)
+        #     attns_per_head = layer_attns.mean(dim=0)
+        #     cur = attns_per_head[:-1].cpu().clone()
+        #     # following the practice in `aggregate_llm_attention`
+        #     # we are zeroing out the attention to the first <bos> token
+        #     # for the first row `cur[0]` (corresponding to the next token after <bos>), however,
+        #     # we don't do this because <bos> is the only token that it can attend to
+        #     cur[1:, 0] = 0.
+        #     cur[1:] = cur[1:] / cur[1:].sum(-1, keepdim=True)
+        #     aggregated_prompt_attention.append(cur)
+        # aggregated_prompt_attention = torch.stack(aggregated_prompt_attention).mean(dim=0)
+
+        # # llm_attn_matrix will be of torch.Size([N, N])
+        # # where N is the total number of input (both image and text ones) + output tokens
+        # llm_attn_matrix = heterogenous_stack(
+        #     [torch.tensor([1])]
+        #     + list(aggregated_prompt_attention) 
+        #     + list(map(aggregate_llm_attention, outputs["attentions"]))
+        # )
+        # # ---
+        
+        # # identify length or index of tokens
+        # input_token_len = model.get_vision_tower().num_patches + len(input_ids[0]) - 1 # -1 for the <image> token
+        # vision_token_start = len(tokenizer(prompt.split("<image>")[0], return_tensors='pt')["input_ids"][0])
+        # vision_token_end = vision_token_start + model.get_vision_tower().num_patches
+        # output_token_len = len(outputs["sequences"][0])
+        # output_token_start = input_token_len
+        # output_token_end = input_token_len + output_token_len
+        
+        # # visualize the llm attention matrix
+        # # ===> adjust the gamma factor to enhance the visualization
+        # #      higer gamma brings out more low attention values
+        # gamma_factor = 1
+        # enhanced_attn_m = np.power(llm_attn_matrix.numpy(), 1 / gamma_factor)
+
+        # fig, ax = plt.subplots(figsize=(10, 20), dpi=150)
+        # ax.imshow(enhanced_attn_m, vmin=enhanced_attn_m.min(), vmax=enhanced_attn_m.max(), interpolation="nearest")
+        
+        # # ---
+        # # look at the attention weights over the vision tokens
+        # overall_attn_weights_over_vis_tokens = []
+        # for i, (row, token) in enumerate(
+        #     zip(
+        #         llm_attn_matrix[input_token_len:], 
+        #         outputs["sequences"][0].tolist()
+        #     )
+        # ):
+        #     # print(
+        #     #     i + input_token_len, 
+        #     #     f"{tokenizer.decode(token, add_special_tokens=False).strip():<15}", 
+        #     #     f"{row[vision_token_start:vision_token_end].sum().item():.4f}"
+        #     # )
+
+        #     overall_attn_weights_over_vis_tokens.append(
+        #         row[vision_token_start:vision_token_end].sum().item()
+        #     )
+
+        # # plot the trend of attention weights over the vision tokens
+        # fig, ax = plt.subplots(figsize=(20, 5))
+        # ax.plot(overall_attn_weights_over_vis_tokens)
+        # ax.set_xticks(range(len(overall_attn_weights_over_vis_tokens)))
+        # ax.set_xticklabels(
+        #     [tokenizer.decode(token, add_special_tokens=False).strip() for token in outputs["sequences"][0].tolist()],
+        #     rotation=75
+        # )
+        # ax.set_title("at each token, the sum of attention weights over all the vision tokens")
         return output
 
 

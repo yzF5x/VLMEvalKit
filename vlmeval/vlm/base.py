@@ -70,6 +70,7 @@ class BaseModel:
         Returns:
             list(dict): The preprocessed input messages. Will return None if failed to preprocess the input.
         """
+        # print("&&&&&&&&&&&&&&&&&  ",inputs,"\n")
         if self.check_content(inputs) == 'str':
             return [dict(type='text', value=inputs)]
         elif self.check_content(inputs) == 'dict':
