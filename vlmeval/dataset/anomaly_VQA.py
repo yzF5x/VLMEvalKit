@@ -6,7 +6,9 @@ class AnomalyVQA(ImageBaseDataset):
     TYPE = "VQA"
     DATASET_URL = {"AnomalyVQA":"/home/bhu/LMUData/AnomalyVQA.tsv",
                    "AnomalyVQA4types":"/home/bhu/LMUData/AnomalyVQA4types.tsv",
-                   "AnomalyVQA1type":"/home/bhu/LMUData/AnomalyVQA1type.tsv"
+                   "AnomalyVQA1type":"/home/bhu/LMUData/AnomalyVQA1type.tsv",
+                   "AnomalyVQA5":"/home/bhu/LMUData/AnomalyVQA5.tsv",  #for test
+                   "AnomalyVQA0":"/home/bhu/LMUData/AnomalyVQA0.tsv" #for test
                    }
     DATASET_MD5 = {}
     

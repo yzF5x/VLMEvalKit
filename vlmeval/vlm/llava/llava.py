@@ -8,8 +8,8 @@ from ...smp import *
 from ...dataset import DATASET_TYPE, DATASET_MODALITY
 import copy
 import requests
-
-# from visual_utils import (
+from .visual_utils import *
+# from .visual_utils import (
 #     load_image, 
 #     aggregate_llm_attention, aggregate_vit_attention,
 #     heterogenous_stack,
@@ -23,6 +23,7 @@ class LLaVA(BaseModel):
     INTERLEAVE = True
 
     def __init__(self, model_path="liuhaotian/llava_v1.5_7b", **kwargs):
+        self.Visual = False
         try:
             from llava.model.builder import load_pretrained_model
             from llava.mm_utils import get_model_name_from_path
@@ -71,15 +72,16 @@ class LLaVA(BaseModel):
 
         self.model = self.model.cuda()
         self.conv_mode = "llava_v1"
-
+        print(self.model , "\n")
+        print(self.model.config)
         kwargs_default = dict(
             do_sample=False,
             temperature=0,
-            max_new_tokens=512,
+            max_new_tokens=768,
             top_p=None,
             num_beams=1,
             use_cache=True,
-            # return_dict_in_generate=True
+            return_dict_in_generate=True,
             output_attentions=True
         )  # noqa E501
         kwargs_default.update(kwargs)
@@ -149,17 +151,17 @@ class LLaVA(BaseModel):
         from llava.constants import IMAGE_TOKEN_INDEX
 
         prompt = self.system_prompt
-        images = []
+        images_list = []
         for utter in message:
             prompt += "USER: " if utter["role"] == "user" else "ASSISTANT: "
             content, images_sub = self.concat_tilist(utter["content"])
             prompt += content
-            images.extend(images_sub)
+            images_list.extend(images_sub)
             prompt += " " if utter["role"] == "user" else self.stop_str
         assert message[-1]["role"] == "user", message
         prompt += "ASSISTANT: "
 
-        images = [Image.open(s).convert("RGB") for s in images]
+        images = [Image.open(s).convert("RGB") for s in images_list]
         args = abstractproperty()
         args.image_aspect_ratio = "pad"
         image_tensor = process_images(images, self.image_processor, args).to(
@@ -196,123 +198,77 @@ class LLaVA(BaseModel):
         from llava.constants import IMAGE_TOKEN_INDEX
 
         # Support interleave text and image
-        content, images = self.concat_tilist(message)
+        content, images_list = self.concat_tilist(message)
+        imgid = images_list[0].split('/')[-1]
+        images = [Image.open(s).convert("RGB") for s in images_list]
+        # image = images[0].resize((336,336))
+        if self.Visual:
+            from gradcam.pytorch_grad_cam import GradCAM
+            from gradcam.pytorch_grad_cam.utils.image import show_cam_on_image,preprocess_image
+            def reshape_transform(tensor, height=24, width=24):
+                result = tensor[:, 1:, :].reshape(tensor.size(0),
+                                                height, width, tensor.size(2))
+                result = result.transpose(2, 3).transpose(1, 2)
+                return result
+            device = "cpu"
+            np_img = np.float32(image) / 255
+            # print("float32 np_img.shape : " , np_img.shape)
+            input_tensor = preprocess_image(np_img, mean=[0.5, 0.5, 0.5],
+                                    std=[0.5, 0.5, 0.5]).to(device)
+            # print("input_tensor size : " , input_tensor.size())
+            
+            targets = None
+            target_layer = self.model.get_vision_tower().vision_tower.vision_model.encoder.layers[-1].layer_norm1
+            cam = GradCAM(model=self.model.get_vision_tower(),
+                            target_layers=[target_layer],
+                            reshape_transform=reshape_transform)
+            grayscale_cam = cam(input_tensor=input_tensor,
+                                targets=targets)
 
-        images = [Image.open(s).convert("RGB") for s in images]
-        args = abstractproperty()
-        args.image_aspect_ratio = "pad"
-        if images:
-            image_tensor = process_images(images, self.image_processor, args).to(
-                "cuda", dtype=torch.float16
-            )
+            # Here grayscale_cam has only one image in the batch
+            grayscale_cam = grayscale_cam[0, :]
+
+            cam_image = show_cam_on_image(np_img, grayscale_cam)
+            cv2.imwrite(f'{imgid}_cam.jpg', cam_image)
+            output = ""
         else:
-            image_tensor = None
+            args = abstractproperty()
+            args.image_aspect_ratio = "pad"
+            if images:
+                image_tensor = process_images(images, self.image_processor, args).to(
+                    "cuda", dtype=torch.float16
+                )
+            else:
+                image_tensor = None
 
-        prompt = self.system_prompt + "USER: " + content + " ASSISTANT: "
+            prompt = self.system_prompt + "USER: " + content + " ASSISTANT: "
 
-        input_ids = (
-            tokenizer_image_token(
-                prompt, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
+            input_ids = (
+                tokenizer_image_token(
+                    prompt, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
+                )
+                .unsqueeze(0)
+                .cuda()
             )
-            .unsqueeze(0)
-            .cuda()
-        )
-        keywords = [self.stop_str]
-        stopping_criteria = KeywordsStoppingCriteria(
-            keywords, self.tokenizer, input_ids
-        )
-        with torch.inference_mode():
-            output_ids = self.model.generate(
-                input_ids,
-                images=image_tensor,
-                stopping_criteria=[stopping_criteria],
-                **self.kwargs,
+            keywords = [self.stop_str]
+            stopping_criteria = KeywordsStoppingCriteria(
+                keywords, self.tokenizer, input_ids
             )
-        # from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image
-        # from pytorch_grad_cam import GradCAM
-        # # input_tensor应该用grad_cam自带的processor还是自定义的？
-        # target_layers = self.model.model.layers[39].self_attn
-        # with GradCAM(model=self.model,
-        #             target_layers=target_layers) as cam:
-        #     cam_output = cam(input_tensor=input_tensor)[0, :]
-        # cam_image = show_cam_on_image(image_float, cam_output, use_rgb=True)
-        # cam_image = cv2.cvtColor(cam_image, cv2.COLOR_RGB2BGR)
-        # cv2.imwrite("../../cam_image.jpg", cam_image)
-        output = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[
-            0
-        ].strip()
-        # print("1111111111111111111" , output_ids,"\n")
-        # print("22222222222222222222222",output,"\n")
-        # # 可视化
-        # # constructing the llm attention matrix
-        # aggregated_prompt_attention = []
-        # for i, layer in enumerate(output_ids["attentions"][0]):
-        #     layer_attns = layer.squeeze(0)
-        #     attns_per_head = layer_attns.mean(dim=0)
-        #     cur = attns_per_head[:-1].cpu().clone()
-        #     # following the practice in `aggregate_llm_attention`
-        #     # we are zeroing out the attention to the first <bos> token
-        #     # for the first row `cur[0]` (corresponding to the next token after <bos>), however,
-        #     # we don't do this because <bos> is the only token that it can attend to
-        #     cur[1:, 0] = 0.
-        #     cur[1:] = cur[1:] / cur[1:].sum(-1, keepdim=True)
-        #     aggregated_prompt_attention.append(cur)
-        # aggregated_prompt_attention = torch.stack(aggregated_prompt_attention).mean(dim=0)
-
-        # # llm_attn_matrix will be of torch.Size([N, N])
-        # # where N is the total number of input (both image and text ones) + output tokens
-        # llm_attn_matrix = heterogenous_stack(
-        #     [torch.tensor([1])]
-        #     + list(aggregated_prompt_attention) 
-        #     + list(map(aggregate_llm_attention, outputs["attentions"]))
-        # )
-        # # ---
-        
-        # # identify length or index of tokens
-        # input_token_len = model.get_vision_tower().num_patches + len(input_ids[0]) - 1 # -1 for the <image> token
-        # vision_token_start = len(tokenizer(prompt.split("<image>")[0], return_tensors='pt')["input_ids"][0])
-        # vision_token_end = vision_token_start + model.get_vision_tower().num_patches
-        # output_token_len = len(outputs["sequences"][0])
-        # output_token_start = input_token_len
-        # output_token_end = input_token_len + output_token_len
-        
-        # # visualize the llm attention matrix
-        # # ===> adjust the gamma factor to enhance the visualization
-        # #      higer gamma brings out more low attention values
-        # gamma_factor = 1
-        # enhanced_attn_m = np.power(llm_attn_matrix.numpy(), 1 / gamma_factor)
-
-        # fig, ax = plt.subplots(figsize=(10, 20), dpi=150)
-        # ax.imshow(enhanced_attn_m, vmin=enhanced_attn_m.min(), vmax=enhanced_attn_m.max(), interpolation="nearest")
-        
-        # # ---
-        # # look at the attention weights over the vision tokens
-        # overall_attn_weights_over_vis_tokens = []
-        # for i, (row, token) in enumerate(
-        #     zip(
-        #         llm_attn_matrix[input_token_len:], 
-        #         outputs["sequences"][0].tolist()
-        #     )
-        # ):
-        #     # print(
-        #     #     i + input_token_len, 
-        #     #     f"{tokenizer.decode(token, add_special_tokens=False).strip():<15}", 
-        #     #     f"{row[vision_token_start:vision_token_end].sum().item():.4f}"
-        #     # )
-
-        #     overall_attn_weights_over_vis_tokens.append(
-        #         row[vision_token_start:vision_token_end].sum().item()
-        #     )
-
-        # # plot the trend of attention weights over the vision tokens
-        # fig, ax = plt.subplots(figsize=(20, 5))
-        # ax.plot(overall_attn_weights_over_vis_tokens)
-        # ax.set_xticks(range(len(overall_attn_weights_over_vis_tokens)))
-        # ax.set_xticklabels(
-        #     [tokenizer.decode(token, add_special_tokens=False).strip() for token in outputs["sequences"][0].tolist()],
-        #     rotation=75
-        # )
-        # ax.set_title("at each token, the sum of attention weights over all the vision tokens")
+            with torch.inference_mode():
+                output_ids = self.model.generate(
+                    input_ids,
+                    images=image_tensor,
+                    stopping_criteria=[stopping_criteria],
+                    **self.kwargs,
+                )
+            output = self.tokenizer.decode(output_ids["sequences"][0], skip_special_tokens=True).strip()
+            # output_ids["attentions"] : [layers , batch_size , heads , sequence_len , sequence_len]
+            # 输出文本token的attention可视化
+            text_token_attention_vis(self.model , self.tokenizer , output_ids , images_list , input_ids , prompt)
+            # 每个text token对应的image attention可视化
+            text_visual_token_attention_vis(self.model , self.tokenizer , output_ids , images_list , input_ids , prompt)
+            # 对输入image的attention可视化
+            visual_attention_vis(self.model , self.tokenizer , output_ids, images_list , input_ids , prompt)
         return output
 
 
@@ -374,6 +330,7 @@ class LLaVA_Next(BaseModel):
 
         model = model.eval()
         self.model = model.cuda()
+        print(self.model.config)
         kwargs_default = dict(
             do_sample=False, temperature=0, max_new_tokens=512, top_p=None, num_beams=1
         )
