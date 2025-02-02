@@ -8,7 +8,9 @@ class AnomalyVQA(ImageBaseDataset):
                    "AnomalyVQA4types":"/home/bhu/LMUData/AnomalyVQA4types.tsv",
                    "AnomalyVQA1type":"/home/bhu/LMUData/AnomalyVQA1type.tsv",
                    "AnomalyVQA5":"/home/bhu/LMUData/AnomalyVQA5.tsv",  #for test
-                   "AnomalyVQA0":"/home/bhu/LMUData/AnomalyVQA0.tsv" #for test
+                   "AnomalyVQA0":"/home/bhu/LMUData/AnomalyVQA0.tsv", #for test
+                   "describe":"/home/bhu/LMUData/describe.tsv",
+                   "DAAvqa0":"/home/bhu/LMUData/DAAvqa0.tsv"
                    }
     DATASET_MD5 = {}
     

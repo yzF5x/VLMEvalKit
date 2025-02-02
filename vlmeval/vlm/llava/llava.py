@@ -9,12 +9,6 @@ from ...dataset import DATASET_TYPE, DATASET_MODALITY
 import copy
 import requests
 from .visual_utils import *
-# from .visual_utils import (
-#     load_image, 
-#     aggregate_llm_attention, aggregate_vit_attention,
-#     heterogenous_stack,
-#     show_mask_on_image
-# )
 
 
 class LLaVA(BaseModel):
@@ -262,13 +256,14 @@ class LLaVA(BaseModel):
                     **self.kwargs,
                 )
             output = self.tokenizer.decode(output_ids["sequences"][0], skip_special_tokens=True).strip()
+            print("^^^^^^^^^^^^ input tokens : " , self.model.get_vision_tower().num_patches + len(input_ids[0]) - 1)
             # output_ids["attentions"] : [layers , batch_size , heads , sequence_len , sequence_len]
             # 输出文本token的attention可视化
-            text_token_attention_vis(self.model , self.tokenizer , output_ids , images_list , input_ids , prompt)
-            # 每个text token对应的image attention可视化
-            text_visual_token_attention_vis(self.model , self.tokenizer , output_ids , images_list , input_ids , prompt)
+            # text_token_attention_vis(self.model , self.tokenizer , output_ids , images_list , input_ids , prompt)
+            # # 每个text token对应的image attention可视化
+            # text_visual_token_attention_vis(self.model , self.tokenizer , output_ids , images_list , input_ids , prompt)
             # 对输入image的attention可视化
-            visual_attention_vis(self.model , self.tokenizer , output_ids, images_list , input_ids , prompt)
+            # visual_attention_vis(self.model , self.tokenizer , output_ids, images_list , input_ids , prompt)
         return output
 
 
@@ -332,7 +327,7 @@ class LLaVA_Next(BaseModel):
         self.model = model.cuda()
         print(self.model.config)
         kwargs_default = dict(
-            do_sample=False, temperature=0, max_new_tokens=512, top_p=None, num_beams=1
+            do_sample=False, temperature=0, max_new_tokens=768, top_p=None, num_beams=1
         )
         kwargs_default.update(kwargs)
         self.kwargs = kwargs_default
@@ -531,7 +526,7 @@ class LLaVA_Next2(BaseModel):
             images=image_tensor,
             do_sample=False,
             temperature=0,
-            max_new_tokens=512,
+            max_new_tokens=768,
             stopping_criteria=[stopping_criteria],
         )
         text_outputs = self.tokenizer.batch_decode(cont, skip_special_tokens=True)[0]
@@ -712,7 +707,7 @@ class LLaVA_OneVision(BaseModel):
             image_sizes=image_sizes,  # Pass the image sizes here
             do_sample=False,
             temperature=0,
-            max_new_tokens=512,
+            max_new_tokens=768,
             stopping_criteria=[stopping_criteria],
         )
         text_outputs = self.tokenizer.batch_decode(cont, skip_special_tokens=True)[0]
@@ -784,7 +779,7 @@ class LLaVA_OneVision(BaseModel):
             image_sizes=image_sizes,  # Pass the image sizes here
             do_sample=False,
             temperature=0,
-            max_new_tokens=512,
+            max_new_tokens=768,
             modalities=modalities,
             stopping_criteria=[stopping_criteria],
         )
@@ -868,7 +863,7 @@ class LLaVA_OneVision_HF(BaseModel):
         prompt = self.processor.apply_chat_template(conversation, add_generation_prompt=True)
         inputs = self.processor(images=images, text=prompt, return_tensors="pt").to('cuda', torch.float16)
 
-        output = self.model.generate(**inputs, max_new_tokens=512)
+        output = self.model.generate(**inputs, max_new_tokens=768)
         if self.model_path == "NCSOFT/VARCO-VISION-14B-HF":
             return self.processor.decode(output[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
         return self.processor.decode(output[0], skip_special_tokens=True)
@@ -907,7 +902,7 @@ class LLaVA_OneVision_HF(BaseModel):
         prompt = self.processor.apply_chat_template(conversation, add_generation_prompt=True)
 
         inputs = self.processor(videos=video_frames, text=prompt, return_tensors="pt").to('cuda', torch.float16)
-        output = self.model.generate(**inputs, max_new_tokens=512)
+        output = self.model.generate(**inputs, max_new_tokens=768)
         return self.processor.decode(output[0], skip_special_tokens=True)
 
     def load_video(self, video_path, max_frames_num, fps=1, force_sample=False):

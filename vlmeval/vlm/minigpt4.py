@@ -13,9 +13,9 @@ class MiniGPT4(BaseModel):
 
     def __init__(self,
                  mode='v2',
-                 root='/mnt/petrelfs/share_data/duanhaodong/MiniGPT-4/',
+                 root='/data/yuezhu/VLMS/MiniGPT-4/',
                  temperature=1,
-                 max_out_len=512):
+                 max_out_len=768):
 
         if root is None:
             warnings.warn(

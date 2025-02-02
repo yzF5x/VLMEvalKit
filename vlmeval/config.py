@@ -59,7 +59,16 @@ openrouter_api_models = {
                                        temperature=0, retry=3 , img_size=512, img_detail='low'),
     'gemini-pro-1.5':partial(OpenrouterAPI , model = 'google/gemini-pro-1.5',api_base
                                     ='https://openrouter.ai/api/v1/chat/completions',
-                                    temperature=0, retry=3 , img_size=512, img_detail='low')
+                                    temperature=0, retry=3 , img_size=512, img_detail='low'),
+    # 用不了
+    'llava-13b':partial(OpenrouterAPI , model = 'liuhaotian/llava-13b',api_base
+                                   = 'https://openrouter.ai/api/v1/chat/completions',
+                                   temperature=0, retry=3 , img_size=512, img_detail='low'),
+    # 用不了
+    'llava-yi-34b':partial(OpenrouterAPI , model = 'liuhaotian/llava-yi-34b',api_base
+                                   = 'https://openrouter.ai/api/v1/chat/completions',
+                                   temperature=0, retry=3 , img_size=512, img_detail='low')
+    
 }
 api_models = {
     # GPT

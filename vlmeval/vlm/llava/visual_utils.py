@@ -1,6 +1,4 @@
-# many are copied from https://github.com/mattneary/attention/blob/master/attention/attention.py
-# here it nullifies the attention over the first token (<bos>)
-# which in practice we find to be a good idea
+
 from io import BytesIO
 from PIL import Image
 import requests
@@ -33,7 +31,7 @@ def aggregate_llm_attention(attn):
     return torch.stack(avged).mean(dim=0)
 
 
-def aggregate_vit_attention(attn, select_layer=-2, all_prev_layers=True):
+def aggregate_visual_attention(attn, select_layer=-2, all_prev_layers=True):
     '''Assuming LLaVA-style `select_layer` which is -2 by default'''
     # print("attn : " , len(attn))
     if all_prev_layers:
@@ -73,11 +71,11 @@ def load_image(image_path_or_url):
 
 
 def show_mask_on_image(img, mask):
-    print("image : " , img.size  , "MASK : " , mask.shape )
+    print("image : " , img.shape  , "MASK : " , mask.shape )
     img = np.float32(img) / 255
     heatmap = cv2.applyColorMap(np.uint8(255 * mask), cv2.COLORMAP_HSV)
     hm = np.float32(heatmap) / 255
-    print(hm.shape , img.shape)
+    print(img.shape,hm.shape)
     cam = hm + np.float32(img)
     cam = cam / np.max(cam)
     return np.uint8(255 * cam), heatmap
@@ -89,9 +87,8 @@ def text_token_attention_vis(model , tokenizer , output_ids , images_list, input
     id = category + "-" + id
     print(category, id)
     images = [Image.open(s).convert("RGB") for s in images_list]
-    # image = images[0]
     image = images[0].resize((336,336))
-    # constructing the llm attention matrix
+
     aggregated_prompt_attention = []
     for i, layer in enumerate(output_ids["attentions"][0]):
         layer_attns = layer.squeeze(0)
@@ -109,16 +106,13 @@ def text_token_attention_vis(model , tokenizer , output_ids , images_list, input
         + list(aggregated_prompt_attention) 
         + list(map(aggregate_llm_attention, output_ids["attentions"]))
     )
-    # # ---
-    
-    # # identify length or index of tokens
+
     input_token_len = model.get_vision_tower().num_patches + len(input_ids[0]) - 1 # -1 for the <image> token
     vision_token_start = len(tokenizer(prompt.split("<image>")[0], return_tensors='pt')["input_ids"][0])
     vision_token_end = vision_token_start + model.get_vision_tower().num_patches
     output_token_len = len(output_ids["sequences"][0])
     output_token_start = input_token_len
     output_token_end = input_token_len + output_token_len
-    # print("output token len : " , output_token_len)
     # # visualize the llm attention matrix
     # # ===> adjust the gamma factor to enhance the visualization
     # #      higer gamma brings out more low attention values
@@ -128,19 +122,13 @@ def text_token_attention_vis(model , tokenizer , output_ids , images_list, input
     fig, ax = plt.subplots(figsize=(10, 20), dpi=150)
     ax.imshow(enhanced_attn_m, vmin=enhanced_attn_m.min(), vmax=enhanced_attn_m.max(), interpolation="nearest")
 
-    # # ---
-    # # look at the attention weights over the vision tokens
     overall_attn_weights_over_vis_tokens = []
     for i, (row, token) in enumerate(
-        zip(
-            llm_attn_matrix[input_token_len:], 
-            output_ids["sequences"][0].tolist()
-        )
+        zip(llm_attn_matrix[input_token_len:], output_ids["sequences"][0].tolist())
     ):
         overall_attn_weights_over_vis_tokens.append(
             row[vision_token_start:vision_token_end].sum().item())
 
-    # plot the trend of attention weights over the vision tokens
     fig, ax = plt.subplots(figsize=(55, 5))
     ax.plot(overall_attn_weights_over_vis_tokens)
     ax.set_xticks(range(len(overall_attn_weights_over_vis_tokens)))
@@ -149,7 +137,7 @@ def text_token_attention_vis(model , tokenizer , output_ids , images_list, input
         rotation=90
     )
     ax.set_title("attn weights of each text token")
-    plt.savefig(f'./outputs/llava-vis/{id}_text_attn.png', format='png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'./outputs/vis/llava_v1.5_7b/{id}_text_attn.png', format='png', dpi=300, bbox_inches='tight')
     
 def text_visual_token_attention_vis(model , tokenizer , output_ids ,images_list,input_ids,prompt):
     category = images_list[0].split("detection_orig/")[-1].split("/")[0]
@@ -177,9 +165,7 @@ def text_visual_token_attention_vis(model , tokenizer , output_ids ,images_list,
         + list(aggregated_prompt_attention) 
         + list(map(aggregate_llm_attention, output_ids["attentions"]))
     )
-    # # ---
-    
-    # # identify length or index of tokens
+
     input_token_len = model.get_vision_tower().num_patches + len(input_ids[0]) - 1 # -1 for the <image> token
     vision_token_start = len(tokenizer(prompt.split("<image>")[0], return_tensors='pt')["input_ids"][0])
     vision_token_end = vision_token_start + model.get_vision_tower().num_patches
@@ -187,7 +173,7 @@ def text_visual_token_attention_vis(model , tokenizer , output_ids ,images_list,
     output_token_start = input_token_len
     output_token_end = input_token_len + output_token_len
     
-    vis_attn_matrix = aggregate_vit_attention(
+    vis_attn_matrix = aggregate_visual_attention(
         model.get_vision_tower().image_attentions,
         select_layer=model.get_vision_tower().select_layer,
         all_prev_layers=True  #False只返回特定layer的attention
@@ -203,8 +189,6 @@ def text_visual_token_attention_vis(model , tokenizer , output_ids ,images_list,
     )
     plt.subplots_adjust(wspace=0.05, hspace=0.2)
 
-    # whether visualize the attention heatmap or 
-    # the image with the attention heatmap overlayed
     vis_overlayed_with_attn = True
 
     output_token_inds = list(range(output_token_start, output_token_end))
@@ -219,7 +203,6 @@ def text_visual_token_attention_vis(model , tokenizer , output_ids ,images_list,
 
         attn_over_image = []
         for weight, vis_attn in zip(attn_weights_over_vis_tokens, vis_attn_matrix):
-            # print("vis_attn : ",vis_attn.shape)
             vis_attn = vis_attn.reshape(grid_size, grid_size)
             attn_over_image.append(vis_attn * weight)
         attn_over_image = torch.stack(attn_over_image).sum(dim=0)
@@ -231,10 +214,9 @@ def text_visual_token_attention_vis(model , tokenizer , output_ids ,images_list,
             mode='nearest', 
         ).squeeze()
         attn_over_image = attn_over_image.numpy()
-        attn_over_image = np.transpose(attn_over_image)
-        print("image : " , image.size  , "attn_over_image : " , attn_over_image.shape )
+        # attn_over_image = np.transpose(attn_over_image)
+        # print("image : " , image.size  , "attn_over_image : " , attn_over_image.shape )
         np_img = np.array(image)
-        # np_img = np.transpose(np_img, (1, 0, 2))
         np_img = np_img[:, :, ::-1]
         img_with_attn, heatmap = show_mask_on_image(np_img, attn_over_image)
         ax.imshow(heatmap if not vis_overlayed_with_attn else img_with_attn)
@@ -244,7 +226,7 @@ def text_visual_token_attention_vis(model , tokenizer , output_ids ,images_list,
             pad=1
         )
         ax.axis("off")
-    plt.savefig(f'./outputs/llava-vis/{id}_text_token_vis_attention_heatmap.png', format='png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'./outputs/vis/llava_v1.5_7b/{id}_text_token_vis_attention_heatmap.png', format='png', dpi=300, bbox_inches='tight')
     
 def visual_attention_vis(model , tokenizer , output_ids ,images_list,input_ids,prompt):
     category = images_list[0].split("detection_orig/")[-1].split("/")[0]
@@ -253,7 +235,7 @@ def visual_attention_vis(model , tokenizer , output_ids ,images_list,input_ids,p
     print(category, id)
     images = [Image.open(s).convert("RGB") for s in images_list]
     image = images[0].resize((336,336))
-    vis_attn_matrix = aggregate_vit_attention(
+    vis_attn_matrix = aggregate_visual_attention(
         model.get_vision_tower().image_attentions,
         select_layer=model.get_vision_tower().select_layer,
         all_prev_layers=True  #False只返回特定layer的attention
@@ -289,20 +271,20 @@ def visual_attention_vis(model , tokenizer , output_ids ,images_list,input_ids,p
     aggregated_attn_weights = torch.zeros_like(vis_attn_matrix[0])  
     for target_token_ind in range(output_token_start, output_token_end):
         attn_weights_over_vis_tokens = llm_attn_matrix[target_token_ind][vision_token_start:vision_token_end]
-        attn_weights_over_vis_tokens = attn_weights_over_vis_tokens / attn_weights_over_vis_tokens.sum()  # 归一化
-        aggregated_attn_weights += attn_weights_over_vis_tokens  # 累加
+        attn_weights_over_vis_tokens = attn_weights_over_vis_tokens / attn_weights_over_vis_tokens.sum() 
+        aggregated_attn_weights += attn_weights_over_vis_tokens 
 
     aggregated_attn_weights = aggregated_attn_weights / aggregated_attn_weights.sum()
     grid_size = model.get_vision_tower().num_patches_per_side
 
     attn_over_image = []
     for weight, vis_attn in zip(aggregated_attn_weights, vis_attn_matrix):
+        # vis_attn : [576]  reshape : [24,24]
         vis_attn = vis_attn.reshape(grid_size, grid_size) 
         attn_over_image.append(vis_attn * weight) 
     attn_over_image = torch.stack(attn_over_image).sum(dim=0)  
     attn_over_image = attn_over_image / attn_over_image.max()  
     attn_over_image = attn_over_image.to(torch.float32)
-    # 插值到原始图像分辨率
     attn_over_image = F.interpolate(
         attn_over_image.unsqueeze(0).unsqueeze(0), 
         size=image.size, 
@@ -310,11 +292,10 @@ def visual_attention_vis(model , tokenizer , output_ids ,images_list,input_ids,p
     ).squeeze()
     print("global:image : " , image.size  , "attn_over_image : " , attn_over_image.shape )
     attn_over_image_np = attn_over_image.numpy()
-    attn_over_image = np.transpose(attn_over_image)
+    # attn_over_image = np.transpose(attn_over_image)
     print("global :image : " , image.size  , "attn_over_image : " , attn_over_image.shape )
-    # 显示热力图
+
     np_img = np.array(image)
-    # np_img = np.transpose(np_img, (1, 0, 2))
     np_img = np_img[:, :, ::-1]  
     
     img_with_attn, heatmap = show_mask_on_image(np_img, attn_over_image_np) 
@@ -322,6 +303,6 @@ def visual_attention_vis(model , tokenizer , output_ids ,images_list,input_ids,p
     ax.set_xticks([])  
     ax.set_yticks([])  
     plt.imshow(heatmap, cmap='jet')
-    plt.savefig(f"./outputs/llava-vis/{id}_global_attn_heatmap.png" , format='png')
+    plt.savefig(f"./outputs/vis/llava_v1.5_7b/{id}_global_attn_heatmap.png" , format='png')
     plt.imshow(img_with_attn)
-    plt.savefig(f'./outputs/llava-vis/{id}_global_attn_heatmap_with_img.png', format='png', dpi=300)
+    plt.savefig(f'./outputs/vis/llava_v1.5_7b/{id}_global_attn_heatmap_with_img.png', format='png', dpi=300)

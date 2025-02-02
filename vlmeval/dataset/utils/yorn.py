@@ -168,7 +168,6 @@ def Anomaly_classification_rating(data_file):
                 y_true.append(0)
     for i in data['extracted']:
         print("extracted i :" ,i)
-        i = i.strip().replace("'",'"')
         i = json.loads(i)
         # print("extracted i :" ,i)
         anomaly_pred.append(i.get('anomaly') if not i.get('anomaly') else 'W')
@@ -219,7 +218,6 @@ def Anomaly_classification_rating(data_file):
                         y_true.append(0)
             for i in sub['extracted']:
                 print("extracted i :" ,i)
-                i = i.strip().replace("'",'"')
                 i = json.loads(i)
                 # print("extracted i :" ,i)
                 anomaly_pred.append(i.get('anomaly') if not i.get('anomaly') else 'W')
@@ -368,6 +366,7 @@ def YOrN_Extraction_From_Json(output):
         else :
             answer_str = '\n'.join(lines[i:j+1])
             json_str = json.loads(answer_str)
+            json_str = json.dumps(json_str,indent = 4)
             return json_str 
       
     answer = parse_json(output)
