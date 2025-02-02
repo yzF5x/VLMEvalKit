@@ -47,7 +47,6 @@ class LLaVA(BaseModel):
                     model_path=model_path,
                     model_base=None,
                     model_name=model_name,
-                    device="cpu",
                     device_map="cpu",
                 )
             )
@@ -855,18 +854,15 @@ class LLaVA_OneVision_HF(BaseModel):
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": content.split("\n", 1)[-1]},
-                    {"type": "image"},
+                    {"type": "text", "text": content},
                 ],
             }
         ]
         prompt = self.processor.apply_chat_template(conversation, add_generation_prompt=True)
         inputs = self.processor(images=images, text=prompt, return_tensors="pt").to('cuda', torch.float16)
 
-        output = self.model.generate(**inputs, max_new_tokens=768)
-        if self.model_path == "NCSOFT/VARCO-VISION-14B-HF":
-            return self.processor.decode(output[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        return self.processor.decode(output[0], skip_special_tokens=True)
+        output = self.model.generate(**inputs, max_new_tokens=512)
+        return self.processor.decode(output[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
 
     def generate_inner_video(self, message, dataset=None):
         content, text_content, visual_content, videos = "", "", "", []
@@ -902,8 +898,8 @@ class LLaVA_OneVision_HF(BaseModel):
         prompt = self.processor.apply_chat_template(conversation, add_generation_prompt=True)
 
         inputs = self.processor(videos=video_frames, text=prompt, return_tensors="pt").to('cuda', torch.float16)
-        output = self.model.generate(**inputs, max_new_tokens=768)
-        return self.processor.decode(output[0], skip_special_tokens=True)
+        output = self.model.generate(**inputs, max_new_tokens=512)
+        return self.processor.decode(output[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
 
     def load_video(self, video_path, max_frames_num, fps=1, force_sample=False):
         from decord import VideoReader, cpu

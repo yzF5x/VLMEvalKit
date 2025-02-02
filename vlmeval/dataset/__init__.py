@@ -5,12 +5,12 @@ from .image_caption import ImageCaptionDataset
 from .image_yorn import ImageYORNDataset
 from .image_mcq import (
     ImageMCQDataset, MMMUDataset, CustomMCQDataset, MUIRDataset, GMAIMMBenchDataset, MMERealWorld, HRBenchDataset,
-    NaturalBenchDataset
+    NaturalBenchDataset, WeMath
 )
 from .image_mt import MMDUDataset
 from .image_vqa import (
     ImageVQADataset, MathVision, OCRBench, MathVista, LLaVABench, MMVet, MTVQADataset, TableVQABench,
-    CustomVQADataset, CRPE, MathVerse, OlympiadBench, QSpatial, VizWiz, MMNIAH 
+    CustomVQADataset, CRPE, MathVerse, OlympiadBench, QSpatial, VizWiz, MMNIAH, LogicVista 
 )
 
 from .text_mcq import CustomTextMCQDataset, TextMCQDataset
@@ -28,6 +28,7 @@ from .tempcompass import TempCompass, TempCompass_Captioning, TempCompass_MCQ, T
 from .longvideobench import LongVideoBench
 from .video_concat_dataset import ConcatVideoDataset
 from .mmgenbench import MMGenBench
+from .cgbench import CGBench_MCQ_Grounding_Mini, CGBench_OpenEnded_Mini, CGBench_MCQ_Grounding, CGBench_OpenEnded
 
 from .miabench import MIABench
 from .cmmmu import CMMMU
@@ -133,13 +134,14 @@ IMAGE_DATASET = [
     MMLongBench, VCRDataset, MMDUDataset, DUDE, SlideVQA, MUIRDataset,
     GMAIMMBenchDataset, MMERealWorld, HRBenchDataset, CRPE, MathVerse, NaturalBenchDataset,
     MIABench, OlympiadBench, WildVision, MMMath, QSpatial, Dynamath, MMGenBench, VizWiz, MMNIAH,
-    CMMMU,AnomalyYorn,AnomalyVQA
+    CMMMU,AnomalyYorn,AnomalyVQA, WeMath, LogicVista
 ]
 
 VIDEO_DATASET = [
     MMBenchVideo, VideoMME, MVBench, MVBench_MP4, LongVideoBench,
     MLVU, MLVU_MCQ, MLVU_OpenEnded,
-    TempCompass, TempCompass_MCQ, TempCompass_Captioning, TempCompass_YorN
+    TempCompass, TempCompass_MCQ, TempCompass_Captioning, TempCompass_YorN,
+    CGBench_MCQ_Grounding_Mini, CGBench_OpenEnded_Mini, CGBench_MCQ_Grounding, CGBench_OpenEnded
 ]
 
 TEXT_DATASET = [

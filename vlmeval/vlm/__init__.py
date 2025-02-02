@@ -5,13 +5,13 @@ torch.manual_seed(1234)
 from .aria import Aria
 from .base import BaseModel
 from .cogvlm import CogVlm, GLM4v
-from .emu import Emu
+from .emu import Emu, Emu3_chat, Emu3_gen
 from .eagle_x import Eagle
 from .idefics import IDEFICS, IDEFICS2
 from .instructblip import InstructBLIP
 from .kosmos import Kosmos2
 from .llava import LLaVA, LLaVA_Next, LLaVA_XTuner, LLaVA_Next2, LLaVA_OneVision, LLaVA_OneVision_HF
-from .minicpm_v import MiniCPM_V, MiniCPM_Llama3_V, MiniCPM_V_2_6
+from .minicpm_v import MiniCPM_V, MiniCPM_Llama3_V, MiniCPM_V_2_6, MiniCPM_o_2_6
 from .minigpt4 import MiniGPT4
 from .mmalaya import MMAlaya, MMAlaya2
 from .monkey import Monkey, MonkeyChat
@@ -60,3 +60,5 @@ from .h2ovl_mississippi import H2OVLChat
 from .falcon_vlm import Falcon2VLM
 from .smolvlm import SmolVLM
 from .sail_vl import SailVL
+from .ross import Ross
+from .ursa import UrsaChat
